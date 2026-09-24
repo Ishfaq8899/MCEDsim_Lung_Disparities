@@ -1,15 +1,15 @@
-Package: MCEDsim
+Package: MCEDsimLungDisparities
 Type: Package
-Title: What the Package Does (Title Case)
+Title: Simulation of MCED Screening and Lung Cancer Disparities
 Version: 0.1.0
-Author: Who wrote it
-Maintainer: The package maintainer <yourself@somewhere.net>
+Author: Ishfaq Ahmad
+Maintainer: Ishfaq Ahmad <ishfaqmaths899@gmail.com>
 Description: More about what it does (maybe more than one line)
     Use four spaces when indenting paragraphs within the Description.
-License: What license is it under?
+License: MIT + file LICENSE
 Encoding: UTF-8
 LazyData: true
-URL: https://github.com/Ishfaq8899/MCEDsim
-BugReports: https://github.com/Ishfaq8899/MCEDsim/issues
+URL: https://github.com/Ishfaq8899/MCEDsim_Lung_Disparities
+BugReports: https://github.com/Ishfaq8899/MCEDsim_Lung_Disparities/issues
 RoxygenNote: 7.3.3
-Imports: msm,dplyr,survobj,purrr
+Imports: msm, dplyr, survobj, purrr, tidyr
