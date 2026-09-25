@@ -262,15 +262,3 @@ sim_othercause_death <- function(othercause_death_table,ID=NA) {
 
 }
 
-
-
-
-
-
-
-
-
-
-
-
-

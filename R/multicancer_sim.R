@@ -164,15 +164,3 @@ create_emission_matrix <- function(rate_matrix, early_sensitivity, late_sensitiv
   return(emission_matrix)
 }
 
-
-
-
-
-
-
-
-
-
-
-
-

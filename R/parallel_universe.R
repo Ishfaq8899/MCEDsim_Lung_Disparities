@@ -282,7 +282,6 @@ sim_individual_MCED<-function( ID,
 #' @param hmd_data Human Mortality Database data.
 #' @param MCED_cdc CDC data for MCED.
 #' @param surv_param_table Data frame of cancer-specific survival parameters.
-#' @param CRC_data CRC data.
 #' @param simulation_seed Set seed for each simulation
 #' @export
 #'
@@ -292,7 +291,7 @@ sim_individual_MCED<-function( ID,
 #' and presence of screening.   Cancer diagnosis and death times are presented both with and without competing other-cause mortality.
 #'
 #' @examples
-#'library(MCEDsimCarolyn)
+#'library(LungDisparitiesMCEDsim)
 #'
 #'# Load the other-cause mortality tables
 #'data("cdc_hmd_data")
@@ -482,6 +481,80 @@ sim_multiple_individuals_MCED_parallel_universe <- function(cancer_sites,
     combined_first_results_females <- do.call(rbind, first_site_female)%>%mutate(sex="Female")
     combined_first_results=bind_rows(combined_first_results_males,combined_first_results_females)%>%
       mutate(start_age=starting_age,end_time=ending_age)
+
+
+    # ==============================================================================
+    # NEW: ported from the original MCEDsim package's
+    # sim_multiple_individuals_MCED_parallel_universe(). Converts the raw,
+    # uncensored simulated times above into actual usable outcomes, accounting
+    # for the competing risk of other-cause death and study end. This is the
+    # step that produces the real, reportable analysis variables --
+    # life_years_diff and overdiagnosis in particular -- that everything we
+    # computed by hand earlier in this project (e.g. cancer_death_time_no_screen
+    # - clinical_diagnosis_time) was only a rough stand-in for.
+    #
+    # Column requirements confirmed compatible with our current
+    # combined_first_results (other_cause_death_time, clinical_diagnosis_time,
+    # end_time, clinical_diagnosis_stage, screen_diagnosis_time,
+    # screen_diagnosis_stage, cancer_death_time_no_screen,
+    # cancer_death_time_screen -- all already present). No changes needed to
+    # the logic itself; ported as-is from the original.
+    # ==============================================================================
+    combined_first_results = combined_first_results %>% mutate(
+      clin_dx_age = pmin(other_cause_death_time, clinical_diagnosis_time, end_time, na.rm = T),
+      clin_dx_event = case_when(
+        clin_dx_age == other_cause_death_time ~ "other_cause_death",
+        clin_dx_age == end_time ~ "censor",
+        clin_dx_age == clinical_diagnosis_time ~ "clin_cancer_diagnosis",
+        .default = NA
+      ),
+      clin_dx_event_stage = case_when(
+        clin_dx_event == "clin_cancer_diagnosis" & clinical_diagnosis_stage == "Early" ~ 1,
+        clin_dx_event == "clin_cancer_diagnosis" & clinical_diagnosis_stage == "Late" ~ 2,
+        .default = 3
+      ),
+      screen_dx_age = pmin(other_cause_death_time, screen_diagnosis_time, end_time, na.rm = T),
+      screen_dx_event = case_when(
+        screen_dx_age == other_cause_death_time ~ "other_cause_death",
+        screen_dx_age == end_time ~ "censor",
+        screen_dx_age == screen_diagnosis_time ~ "screen_cancer_diagnosis",
+        .default = NA
+      ),
+      screen_dx_event_stage = case_when(
+        screen_dx_event == "screen_cancer_diagnosis" & screen_diagnosis_stage == "Early" ~ 1,
+        screen_dx_event == "screen_cancer_diagnosis" & screen_diagnosis_stage == "Late" ~ 2,
+        .default = 3
+      ),
+      death_age_no_screen = pmin(other_cause_death_time, cancer_death_time_no_screen, end_time, na.rm = T),
+      death_age_screen = pmin(other_cause_death_time, cancer_death_time_screen, end_time, na.rm = T),
+      death_event_no_screen = case_when(
+        death_age_no_screen == other_cause_death_time ~ "other_cause_death",
+        death_age_no_screen == end_time ~ "censor",
+        death_age_no_screen == cancer_death_time_no_screen ~ "cancer_death",
+        .default = NA
+      ),
+      death_event_screen = case_when(
+        death_age_screen == other_cause_death_time ~ "other_cause_death",
+        death_age_screen == end_time ~ "censor",
+        death_age_screen == cancer_death_time_screen ~ "cancer_death",
+        .default = NA
+      ),
+      diagnosis_age_screen_scenario = pmin(clin_dx_age, screen_dx_age, na.rm = T),
+      diagnosis_event_screen_scenario = ifelse(screen_dx_age <= clin_dx_age, screen_dx_event, clin_dx_event),
+      diagnosis_event_stage_screen_scenario = case_when(
+        screen_dx_event == "screen_cancer_diagnosis" & screen_diagnosis_stage == "Early" ~ 1,
+        screen_dx_event == "screen_cancer_diagnosis" & screen_diagnosis_stage == "Late" ~ 2,
+        (screen_dx_event != "screen_cancer_diagnosis" & clin_dx_event == "clin_cancer_diagnosis") & clinical_diagnosis_stage == "Early" ~ 1,
+        (screen_dx_event != "screen_cancer_diagnosis" & clin_dx_event == "clin_cancer_diagnosis") & clinical_diagnosis_stage == "Late" ~ 2,
+        .default = 3
+      ),
+      life_years_diff = death_age_screen - death_age_no_screen,
+      overdiagnosis = ifelse(screen_dx_event == "screen_cancer_diagnosis" & clin_dx_event == "other_cause_death", 1, 0)
+    )
+    # ==============================================================================
+    # END ported block.
+    # ==============================================================================
+
 
     # Combine all individual results (additional cancers)
     combined_additional_results_males <- do.call(rbind, additional_sites_male)%>%mutate(sex="Male")
